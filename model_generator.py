@@ -1,25 +1,39 @@
-# Data Manipulation libraries
-import pandas as pd
-from sklearn.model_selection  import train_test_split
-from sklearn.neural_network import MLPRegressor
 import joblib
+import numpy as np
+import pandas as pd
+import xgboost as xgb
 
-df = pd.read_csv('tp3_boston_data.csv')  # Load the dataset
+#Load the CSV file containing the dataset.
+hr_dataset = pd.read_csv("hr.csv")
 
-df_x = df[['crim', 'zn', 'indus', 'chas', 'nox', 'rm', 'age', 'dis', 'rad', 'tax', 'ptratio', 'lstat']]
-df_y = df[['medv']]
+# Prepend column name prior to encoding
+hr_dataset['salary'] = 'salary_' + hr_dataset['salary'].astype(str)
+# one hot encoding
+one_hot_salary = pd.get_dummies(hr_dataset['salary'])
+#append as a new column
+hr_dataset = hr_dataset.join(one_hot_salary)
+# Prepend column name prior to encoding
+hr_dataset['department'] = 'dept_' + hr_dataset['department'].astype(str)
+# one hot encoding
+one_hot_department = pd.get_dummies(hr_dataset['department'])
+#append as a new column
+hr_dataset = hr_dataset.join(one_hot_department)
+#To avoid multicollinearity, we must drop one of the new columns created during one hot encoding
+hr_dataset = hr_dataset.drop(columns=['salary', 'department', 'salary_low', 'dept_IT'])
 
-from sklearn.preprocessing import StandardScaler
-scaler = StandardScaler()
-scaler.fit(df_x)
+train, test, validate = np.split(hr_dataset.sample(frac=1), [int(.6*len(hr_dataset)), int(.8*len(hr_dataset))])
+X_train = train.drop(columns=['Resigned'])
+print(X_train.columns)
 
-df_x_scaled = scaler.transform(df_x)
-df_x_scaled = pd.DataFrame(df_x_scaled, columns=df_x.columns)
-X_train, X_test, Y_train, Y_test = train_test_split(df_x_scaled, df_y, test_size = 0.33, random_state = 5)
+y_train = train[['Resigned']]
+X_test = test.drop(columns=['Resigned'])
+y_test = test[['Resigned']]
+X_validate = validate.drop(columns=['Resigned'])
+y_validate = validate[['Resigned']]
 
-mlp = MLPRegressor(hidden_layer_sizes=(60), max_iter=1000)
-mlp.fit(X_train, Y_train)
-Y_predict = mlp.predict(X_test)
+# XGBoost
+hrXGB = xgb.XGBClassifier()
+hrXGB.fit(X_train,y_train)
 
 #Saving the machine learning model to a file
-joblib.dump(mlp, "model/rf_model.pkl")
+joblib.dump(hrXGB, "model/rf_model.pkl")
